@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Generator
 
 from openai import OpenAI
 
@@ -8,8 +8,14 @@ from .base import BaseProvider, ModelInfo
 class OpenAIProvider(BaseProvider):
     """OpenAI API provider."""
 
-    def __init__(self, api_key: str, base_url: Optional[str] = None):
-        super().__init__(api_key, base_url)
+    def __init__(
+        self,
+        api_key: str,
+        base_url: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        default_model: Optional[str] = None,
+    ):
+        super().__init__(api_key, base_url, system_prompt, default_model)
         self._client: Optional[OpenAI] = None
 
     @property
@@ -45,3 +51,48 @@ class OpenAIProvider(BaseProvider):
             return True
         except Exception:
             return False
+
+    def chat(
+        self,
+        message: str,
+        model: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        stream: bool = True,
+    ) -> Generator[str, None, str]:
+        """
+        Send a chat message and get response (with streaming support).
+        """
+        model = model or self.default_model
+        if not model:
+            raise ValueError("No model specified and no default model set")
+
+        # Build messages
+        messages = []
+        if system_prompt or self.system_prompt:
+            messages.append({"role": "system", "content": system_prompt or self.system_prompt})
+        messages.append({"role": "user", "content": message})
+
+        if stream:
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=True,
+            )
+            content = ""
+            for chunk in response:
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        chunk_content = delta.content
+                        content += chunk_content
+                        yield chunk_content
+            return content
+        else:
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=False,
+            )
+            if response.choices and len(response.choices) > 0:
+                return response.choices[0].message.content or ""
+            return ""
