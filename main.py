@@ -4,10 +4,11 @@ import sys
 from typing import Optional
 
 from dotenv import load_dotenv
-from rich.console import Console
+from rich.console import Console, Group
 from rich.table import Table
 from rich.panel import Panel
 from rich import box
+from rich.text import Text
 
 from providers import (
     OpenAIProvider,
@@ -18,6 +19,32 @@ from providers import (
 
 
 console = Console()
+
+
+def mask_api_key(api_key: str) -> str:
+    """Mask API key for display, showing only first 4 and last 4 characters."""
+    if len(api_key) <= 12:
+        return "*" * len(api_key)
+    return f"{api_key[:4]}{'*' * (len(api_key) - 8)}{api_key[-4:]}"
+
+
+def display_provider_info(provider: BaseProvider) -> None:
+    """Display provider configuration information."""
+    info_table = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
+    info_table.add_column("Key", style="bold cyan")
+    info_table.add_column("Value", style="white")
+
+    info_table.add_row("Provider", Text(provider.name, style="bold magenta"))
+    info_table.add_row("API Key", Text(mask_api_key(provider.api_key), style="yellow"))
+    info_table.add_row("Base URL", Text(provider.base_url or "(default)", style="green"))
+
+    console.print(Panel(
+        info_table,
+        title="[bold]Provider Configuration[/bold]",
+        border_style="blue",
+        padding=(0, 1),
+    ))
+    console.print()
 
 
 def get_provider(
@@ -62,6 +89,8 @@ def get_provider(
 def display_models(provider: BaseProvider) -> None:
     """Display models in a rich table."""
     try:
+        display_provider_info(provider)
+
         models = provider.list_models()
 
         table = Table(
@@ -95,6 +124,8 @@ def display_models(provider: BaseProvider) -> None:
 
 def validate_key(provider: BaseProvider) -> None:
     """Validate API key and display result."""
+    display_provider_info(provider)
+
     console.print(f"[bold]Validating {provider.name} API key...[/bold]")
 
     if provider.validate_key():
