@@ -286,18 +286,26 @@ def main():
     load_dotenv()
 
     parser = argparse.ArgumentParser(
-        description="Check API keys for OpenAI, Anthropic, and Gemini, or chat with all providers",
+        description="Multi-provider AI CLI tool for OpenAI, Anthropic, and Gemini",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  uv run main.py openai                    # List OpenAI models using .env
-  uv run main.py anthropic --validate      # Validate Anthropic API key
-  uv run main.py gemini --api-key YOUR_KEY # Use custom API key
-  uv run main.py openai --base-url https://custom.api.com/v1
-  uv run main.py chat "Hello, how are you?"  # Chat with all providers
-  uv run main.py chat "Tell me a joke" --model gpt-4o  # Use specific model
-  uv run main.py chat "Hello" --system-prompt "You are a pirate"  # Custom system prompt
-  uv run main.py chat "Hello" -p openai    # Chat with only OpenAI
+  # List models
+  uv run main.py list openai                    # List OpenAI models using .env
+  uv run main.py list anthropic --validate      # Validate Anthropic API key
+  uv run main.py list gemini --api-key YOUR_KEY # Use custom API key
+  uv run main.py list openai --base-url https://custom.api.com/v1
+
+  # Chat with providers
+  uv run main.py chat "Hello, how are you?"     # Chat with all providers simultaneously
+  uv run main.py chat "Tell me a joke" -m gpt-4o  # Use specific model
+  uv run main.py chat "Hello" -s "You are a pirate"  # Custom system prompt
+  uv run main.py chat "Hello" -p openai         # Chat with only OpenAI
+
+Environment variables (.env):
+  OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_SYSTEM_PROMPT, OPENAI_DEFAULT_MODEL
+  ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL, ANTHROPIC_SYSTEM_PROMPT, ANTHROPIC_DEFAULT_MODEL
+  GEMINI_API_KEY, GEMINI_SYSTEM_PROMPT, GEMINI_DEFAULT_MODEL
         """,
     )
 
