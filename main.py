@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
@@ -263,23 +264,14 @@ def chat_all_providers(message: str, provider_name: Optional[str] = None, model:
         threads.append(t)
 
     # Display with Live for streaming updates
-    with Live(update_display(), console=console, refresh_per_second=10) as live:
+    with Live(update_display(), console=console, refresh_per_second=20) as live:
+        while not all(provider_done.values()):
+            live.update(update_display())
+            time.sleep(0.05)  # Small delay to make streaming more visible
         for t in threads:
             t.join()
-
-    # Final display with all done
-    console.clear()
-    final_panels = []
-    for provider in providers:
-        title = f"[bold]{provider.name}[/bold] [cyan][[/cyan][yellow]{provider_model[provider.name]}[/yellow][cyan]][/cyan] [bold green](done)[/bold green]"
-        final_panels.append(Panel(
-            Text(provider_contents[provider.name], style="white"),
-            title=title,
-            border_style="green",
-            expand=True,
-            padding=(1, 2),
-        ))
-    console.print(Group(*final_panels))
+        # Final update to ensure everything is shown
+        live.update(update_display())
 
 
 def main():
