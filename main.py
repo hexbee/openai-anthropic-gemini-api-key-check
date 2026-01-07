@@ -13,6 +13,7 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.spinner import Spinner
 from rich.table import Table
+from rich.layout import Layout
 from rich import box
 
 from providers import (
@@ -229,21 +230,44 @@ def chat_all_providers(message: str, provider_name: Optional[str] = None, model:
     provider_done = {p.name: False for p in providers}
     provider_model = {p.name: model or p.default_model or "(default)" for p in providers}
 
-    def update_display():
-        """Generate the current display layout."""
-        panels = []
-        for provider in providers:
+    def truncate_content_for_streaming(content: str, max_lines: int = 12) -> str:
+        """Truncate content to show only the last N lines during streaming."""
+        lines = content.split('\n')
+        if len(lines) <= max_lines:
+            return content
+        return '\n'.join(lines[-max_lines:])
+
+    def create_streaming_layout():
+        """Create a layout for fixed-height streaming display."""
+        layout = Layout()
+
+        # Split layout based on number of providers
+        if len(providers) == 1:
+            layout.split_column(Layout(name="provider_0"))
+        elif len(providers) == 2:
+            layout.split_column(Layout(name="provider_0"), Layout(name="provider_1"))
+        else:  # 3 providers
+            layout.split_column(Layout(name="provider_0"), Layout(name="provider_1"), Layout(name="provider_2"))
+
+        # Update each section with provider panel
+        for idx, provider in enumerate(providers):
             status = "[bold green](done)[/bold green]" if provider_done[provider.name] else "[cyan]Generating...[/cyan]"
             border = "green" if provider_done[provider.name] else "blue"
             title = f"[bold]{provider.name}[/bold] [cyan][[/cyan][yellow]{provider_model[provider.name]}[/yellow][cyan]][/cyan] {status}"
-            panels.append(Panel(
-                Text(provider_contents[provider.name], style="white"),
+
+            # Truncate content for streaming view
+            display_content = truncate_content_for_streaming(provider_contents[provider.name])
+
+            panel = Panel(
+                Text(display_content, style="white"),
                 title=title,
                 border_style=border,
-                expand=True,
                 padding=(1, 2),
-            ))
-        return Group(*panels)
+                height=console.height // len(providers) - 1,
+            )
+            layout[f"provider_{idx}"].update(panel)
+
+        return layout
 
     def run_provider(provider: BaseProvider) -> None:
         """Run chat for a single provider in a thread."""
@@ -263,15 +287,27 @@ def chat_all_providers(message: str, provider_name: Optional[str] = None, model:
         t.start()
         threads.append(t)
 
-    # Display with Live for streaming updates
-    with Live(update_display(), console=console, refresh_per_second=20) as live:
+    # Display with Live for streaming updates (fixed-height split screen)
+    with Live(create_streaming_layout(), console=console, refresh_per_second=20, screen=True) as live:
         while not all(provider_done.values()):
-            live.update(update_display())
-            time.sleep(0.05)  # Small delay to make streaming more visible
+            live.update(create_streaming_layout())
+            time.sleep(0.05)
         for t in threads:
             t.join()
-        # Final update to ensure everything is shown
-        live.update(update_display())
+        # Final update for streaming view
+        live.update(create_streaming_layout())
+
+    # After streaming is done, show full content
+    console.print("\n[bold cyan]═══ Full Output ═══[/bold cyan]\n")
+    for provider in providers:
+        title = f"[bold]{provider.name}[/bold] [cyan][[/cyan][yellow]{provider_model[provider.name]}[/yellow][cyan]][/cyan] [bold green](done)[/bold green]"
+        console.print(Panel(
+            Text(provider_contents[provider.name], style="white"),
+            title=title,
+            border_style="green",
+            expand=True,
+            padding=(1, 2),
+        ))
 
 
 def main():
